@@ -1,0 +1,12 @@
+requests
+pyTelegramBotAPI
+fpdf2
+groq
+Flask
+Pillow
+pyautogui
+pyperclip
+beautifulsoup4
+pycaw
+comtypes
+psutil
