@@ -1,0 +1,21 @@
+# NEVER upload these to GitHub
+mybot.py
+deskagent.py
+config.py
+config.json
+data/
+*.json
+*.db
+*.log
+heal_log.txt
+agent_log.txt
+__pycache__/
+*.pyc
+venv/
+env/
+.env
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
