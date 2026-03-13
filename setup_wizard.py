@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # ============================================================
-#   ORACLE AI BOT — Smart Setup Wizard v2.0
+#   ORACLE AI BOT — Smart Setup Wizard v2.1
 #   Created by Sandip | github.com/sandiprout747-tech
 #   Penguin validates every input in real-time
 # ============================================================
 
-import sys, os, time, re, json, subprocess
+import sys, os, time, re, json, subprocess, urllib.request
 
 # ── ANSI Colors ──────────────────────────────────────────────
 R="\033[91m"; G="\033[92m"; Y="\033[93m"; B="\033[94m"
@@ -71,17 +71,18 @@ def validate_groq_key(key):
         return False, (
             "❌ Invalid Groq API key format!\n\n"
             "Problem: Groq keys always start with 'gsk_'\n"
-            "Your input: '" + key[:15] + "...'\n\n"
+            "Your input starts with: '" + key[:8] + "...'\n\n"
             "Fix:\n"
             "1. Go to https://console.groq.com\n"
-            "2. Sign in → API Keys → Create new key\n"
-            "3. Copy the full key starting with gsk_"
+            "2. Sign up free — no credit card needed\n"
+            "3. Click API Keys → Create new key\n"
+            "4. Copy the full key starting with gsk_"
         )
     if len(key) < 40:
         return False, (
             "❌ Key too short!\n\n"
             "Groq keys are usually 50+ characters.\n"
-            "Make sure you copied the full key."
+            "Make sure you copied the complete key."
         )
     return True, ""
 
@@ -90,17 +91,18 @@ def validate_telegram_token(token):
     if len(parts) != 2:
         return False, (
             "❌ Invalid Telegram token format!\n\n"
-            "Problem: Token must have format: 1234567890:ABCdef...\n"
-            "It needs a colon (:) separating two parts.\n\n"
+            "Problem: Token must have format:\n"
+            "1234567890:ABCdefGHIjklMNOpqrSTUvwx\n"
+            "It needs a colon separating two parts.\n\n"
             "Fix:\n"
             "1. Open Telegram → search @BotFather\n"
             "2. Send /mybots → select your bot\n"
-            "3. Click 'API Token' → copy the full token"
+            "3. Click API Token → copy the full token"
         )
     if not parts[0].isdigit():
         return False, (
             "❌ Token format wrong!\n\n"
-            "The part before the colon must be numbers only.\n"
+            "The part before the colon must be numbers.\n"
             "Example: 1234567890:ABCdefGHIjkl...\n\n"
             "Get correct token from @BotFather on Telegram."
         )
@@ -120,7 +122,7 @@ def validate_user_id(uid):
             "Fix:\n"
             "1. Open Telegram → search @userinfobot\n"
             "2. Send /start\n"
-            "3. It shows: 'Your ID: 1234567890'\n"
+            "3. It shows: Your ID: 1234567890\n"
             "4. Copy only the numbers"
         )
     if len(uid) < 5 or len(uid) > 12:
@@ -133,7 +135,7 @@ def validate_user_id(uid):
 
 def validate_gmail(email):
     if not email:
-        return True, ""  # optional
+        return True, ""
     if "@" not in email or "." not in email:
         return False, (
             "❌ Invalid email format!\n\n"
@@ -158,8 +160,9 @@ def validate_app_password(pwd):
             f"You entered {len(clean)} characters.\n\n"
             "Fix:\n"
             "1. Go to myaccount.google.com\n"
-            "2. Security → 2-Step Verification → App Passwords\n"
-            "3. Create new → copy the 16-char password\n"
+            "2. Security → 2-Step Verification\n"
+            "3. App Passwords → Create new\n"
+            "4. Copy the 16-char password\n"
             "Format: abcd efgh ijkl mnop"
         )
     return True, ""
@@ -171,11 +174,11 @@ def validate_city(city):
         return False, "City name should not contain numbers."
     return True, ""
 
+# ── LIVE API VALIDATORS ───────────────────────────────────────
+
 def validate_groq_key_live(key):
-    """Actually test the Groq key with a real API call"""
     info("Testing your Groq API key with a real request...")
     try:
-        import urllib.request, json
         data = json.dumps({
             "model": "llama-3.1-8b-instant",
             "messages": [{"role": "user", "content": "say ok"}],
@@ -189,9 +192,10 @@ def validate_groq_key_live(key):
                 "Content-Type": "application/json"
             }
         )
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:
             result = json.loads(resp.read())
             if result.get("choices"):
+                ok("Groq API key verified successfully!")
                 return True, ""
     except Exception as e:
         errmsg = str(e)
@@ -202,31 +206,27 @@ def validate_groq_key_live(key):
                 "Fix:\n"
                 "1. Go to https://console.groq.com\n"
                 "2. Delete old key → Create new key\n"
-                "3. Copy the complete new key"
+                "3. Copy the complete new key starting with gsk_"
             )
         elif "429" in errmsg:
-            return True, ""  # rate limit = key is valid
+            ok("Groq key accepted! (rate limited — still valid)")
+            return True, ""
         else:
-            return False, (
-                f"❌ Could not verify Groq key.\n\n"
-                "Possible causes:\n"
-                "• No internet connection\n"
-                "• Groq servers temporarily down\n\n"
-                "Try again or check your connection."
-            )
-    return False, "Verification failed. Try again."
+            warn("Could not verify online — accepting key anyway.")
+            warn(f"Reason: {errmsg[:80]}")
+            return True, ""
+    return True, ""
 
 def validate_telegram_token_live(token):
-    """Test Telegram token with real API call"""
-    info("Testing your Telegram Bot Token...")
+    info("Testing your Telegram Bot Token with Telegram servers...")
     try:
         url = f"https://api.telegram.org/bot{token}/getMe"
         req = urllib.request.Request(url)
-        import urllib.request, json
-        with urllib.request.urlopen(url, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read())
             if data.get("ok"):
                 bot_name = data["result"].get("username", "Unknown")
+                ok(f"Telegram token verified! Bot: @{bot_name}")
                 return True, bot_name
     except Exception as e:
         errmsg = str(e)
@@ -238,18 +238,17 @@ def validate_telegram_token_live(token):
                 "1. Open Telegram → @BotFather\n"
                 "2. Send /mybots → select your bot\n"
                 "3. API Token → copy fresh token\n"
-                "4. Make sure no spaces at start/end"
+                "4. Make sure no spaces at start or end"
             )
         else:
-            return False, (
-                "❌ Could not verify Telegram token.\n\n"
-                "Check your internet connection\n"
-                "and try again."
-            )
-    return False, "Verification failed."
+            warn("Could not verify online — accepting token anyway.")
+            warn(f"Reason: {errmsg[:80]}")
+            return True, ""
+    return True, ""
 
-# ── ASK WITH VALIDATION ───────────────────────────────────────
-import urllib.request
+def warn(m): print(f"  {Y}⚠  {Y}{m}{RESET}")
+
+# ── SMART ASK ─────────────────────────────────────────────────
 
 def smart_ask(prompt, validator, required=True, hint_text="", live_check=None):
     while True:
@@ -269,7 +268,6 @@ def smart_ask(prompt, validator, required=True, hint_text="", live_check=None):
             print(f"\n  {Y}Try again:{RESET}")
             continue
 
-        # Live API check if provided
         if live_check:
             result = live_check(val)
             if isinstance(result, tuple) and len(result) == 2:
@@ -282,18 +280,17 @@ def smart_ask(prompt, validator, required=True, hint_text="", live_check=None):
                 print(f"\n  {Y}Try again:{RESET}")
                 continue
             elif isinstance(live_msg, str) and live_msg and not live_msg.startswith("❌"):
-                # Success with extra info (like bot username)
-                penguin_say(f"✅ Verified! Bot username: @{live_msg}", color=G, mood="check")
                 return val
 
         penguin_say(f"✅ Looks good!", color=G, mood="check")
         return val
 
 # ── COLLECT INFO ──────────────────────────────────────────────
+
 def collect_info():
     clear()
     print(f"\n{C}╔══════════════════════════════════════════════════╗")
-    print(f"{C}║  {W}{BOLD} 🐧 Oracle Smart Setup Wizard v2.0          {RESET}{C}   ║")
+    print(f"{C}║  {W}{BOLD} 🐧 Oracle Smart Setup Wizard v2.1          {RESET}{C}   ║")
     print(f"{C}║  {DIM}   Created by Sandip · I validate everything!{RESET}{C}  ║")
     print(f"{C}╚══════════════════════════════════════════════════╝{RESET}")
 
@@ -321,10 +318,10 @@ def collect_info():
     penguin_say(
         "Getting your FREE Groq API key:\n"
         "1. Go to https://console.groq.com\n"
-        "2. Sign up (free — no credit card)\n"
-        "3. Click 'API Keys' → 'Create API Key'\n"
+        "2. Sign up free — no credit card needed\n"
+        "3. Click API Keys → Create API Key\n"
         "4. Copy the key starting with gsk_\n\n"
-        "I will test it live to make sure it works!",
+        "I will test it live to confirm it works!",
         mood="think"
     )
     config["GROQ_API_KEY"] = smart_ask(
@@ -361,7 +358,7 @@ def collect_info():
         "1. Open Telegram\n"
         "2. Search: @userinfobot\n"
         "3. Send: /start\n"
-        "4. Copy the number next to 'Id:'\n\n"
+        "4. Copy the number next to Id:\n\n"
         "This is a security lock —\n"
         "only YOU can control your bot!",
         mood="think"
@@ -378,9 +375,8 @@ def collect_info():
         "Email setup is OPTIONAL.\n"
         "Press ENTER to skip both fields.\n\n"
         "If you want email features:\n"
-        "• You need a Gmail App Password\n"
-        "• Go to myaccount.google.com\n"
-        "• Security → App Passwords → Create",
+        "→ Go to myaccount.google.com\n"
+        "→ Security → App Passwords → Create",
         mood="normal"
     )
     config["GMAIL_ADDRESS"] = smart_ask(
@@ -410,6 +406,7 @@ def collect_info():
     return config
 
 # ── PATCH FILES ───────────────────────────────────────────────
+
 def patch_and_save(config):
     print(f"\n{C}{'═'*55}{RESET}")
     print(f"  {BOLD}{W}Applying your settings to bot files...{RESET}")
@@ -442,7 +439,6 @@ def patch_and_save(config):
             f.write(content)
         ok(f"Patched: {os.path.basename(filepath)}")
 
-    # Save config
     config_path = os.path.expanduser("~/MyTelegramAI/config.py")
     with open(config_path, "w", encoding="utf-8") as f:
         f.write("# Oracle AI Bot Config — DO NOT share this file\n")
@@ -451,6 +447,7 @@ def patch_and_save(config):
     ok("Config saved securely")
 
 # ── SUMMARY ───────────────────────────────────────────────────
+
 def show_summary(config):
     clear()
     print(f"\n{G}╔══════════════════════════════════════════════════╗")
@@ -478,6 +475,7 @@ def show_summary(config):
     )
 
 # ── MAIN ─────────────────────────────────────────────────────
+
 def main():
     try:
         config = collect_info()
