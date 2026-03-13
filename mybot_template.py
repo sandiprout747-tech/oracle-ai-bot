@@ -313,15 +313,58 @@ def cmd_lock(msg):
     ctypes.windll.user32.LockWorkStation()
     bot.send_message(msg.chat.id, "🔒 PC Locked.")
 
+# ── SMART APP MAP ─────────────────────────────────────────────
+APP_MAP = {
+    "chrome":     "start chrome",
+    "firefox":    "start firefox",
+    "edge":       "start msedge",
+    "word":       "start winword",
+    "excel":      "start excel",
+    "powerpoint": "start powerpnt",
+    "notepad":    "start notepad",
+    "paint":      "start mspaint",
+    "calculator": "start calc",
+    "explorer":   "start explorer",
+    "files":      "start explorer",
+    "settings":   "start ms-settings:",
+    "youtube":    "start https://youtube.com",
+    "google":     "start https://google.com",
+    "gmail":      "start https://mail.google.com",
+    "whatsapp":   "start https://web.whatsapp.com",
+    "github":     "start https://github.com",
+    "maps":       "start https://maps.google.com",
+    "translate":  "start https://translate.google.com",
+    "chatgpt":    "start https://chat.openai.com",
+    "netflix":    "start https://netflix.com",
+    "spotify":    "start https://open.spotify.com",
+}
+
 @bot.message_handler(commands=["openapp"])
 def cmd_openapp(msg):
     if not auth(msg): return deny(msg)
-    app = msg.text.replace("/openapp", "").strip()
+    app = msg.text.replace("/openapp", "").strip().lower()
+    if not app:
+        bot.send_message(msg.chat.id,
+            "Usage: /openapp youtube\n\n"
+            "Apps: chrome, firefox, edge, notepad, paint,\n"
+            "      calculator, word, excel, explorer\n\n"
+            "Sites: youtube, google, gmail, whatsapp,\n"
+            "       github, maps, netflix, spotify"
+        )
+        return
     try:
-        subprocess.Popen(app, shell=True)
+        if app in APP_MAP:
+            cmd = APP_MAP[app]
+        elif app.startswith("http://") or app.startswith("https://"):
+            cmd = f"start {app}"
+        elif "." in app and " " not in app:
+            cmd = f"start https://{app}"
+        else:
+            cmd = f"start {app}"
+        subprocess.Popen(cmd, shell=True)
         bot.send_message(msg.chat.id, f"🚀 Opening: {app}")
     except Exception as e:
-        bot.send_message(msg.chat.id, f"❌ Failed: {e}")
+        bot.send_message(msg.chat.id, f"❌ Failed to open {app}: {e}")
 
 @bot.message_handler(commands=["runcmd"])
 def cmd_runcmd(msg):
